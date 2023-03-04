@@ -10,7 +10,8 @@ from posts.models import Comment, Follow, Group, Post, User
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 """
-Получилось очень много дублирования кода, а именно объекты созданные в setUpClass,
+Получилось очень много дублирования кода, 
+а именно объекты созданные в setUpClass,
 как я понял, всё это можно вынести в отдельный class и уже от него всё тянуть 
 """
 
