@@ -5,14 +5,9 @@ from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from posts.models import Comment, Follow, Group, Post, User
+from posts.models import Comment, Group, Post, User
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
-
-
-# Получилось очень много дублирования кода,
-# а именно объекты созданные в setUpClass, как я понял,
-# всё это можно вынести в отдельный class и уже от него всё тянуть
 
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
@@ -75,7 +70,6 @@ class PostFormTests(TestCase):
     def test_edit_post_form_authorized_client(self):
         """Валидная форма изменяет пост от авторизованного автора поста"""
         form_data = {'text': 'Изменённый важный текст', }
-
         response = self.authorized_client.post(
             reverse('posts:post_edit', kwargs={'post_id': self.post.id}),
             data=form_data,
@@ -105,52 +99,3 @@ class PostFormTests(TestCase):
             kwargs={'post_id': self.post.id}
         ))
         self.assertEqual(Comment.objects.count(), comments_count + 1)
-
-
-class FollowViewTest(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = User.objects.create(username='Utest')
-        cls.follower = User.objects.create(username='Ufollower')
-        cls.post = Post.objects.create(
-            text='текст',
-            author=cls.user
-        )
-
-    def setUp(self):
-        self.author_client = Client()
-        self.author_client.force_login(self.user)
-        self.follower_client = Client()
-        self.follower_client.force_login(self.follower)
-
-    def test_follow(self):
-        """Проверка подписки на автора"""
-        self.follower_client.get(
-            reverse('posts:profile_follow', kwargs={'username': self.user})
-        )
-        self.assertEqual(Follow.objects.all().count(), 1)
-
-    def test_unfollow(self):
-        """Проверка отписки от автора"""
-        self.follower_client.get(
-            reverse('posts:profile_follow',
-                    kwargs={'username': self.user}))
-        self.follower_client.get(
-            reverse('posts:profile_unfollow', kwargs={'username': self.user})
-        )
-        self.assertEqual(Follow.objects.all().count(), 0)
-
-    def test_post_follow_unfollow(self):
-        """Проверка поста в подписках и без подписок"""
-        Follow.objects.create(
-            user=self.follower,
-            author=self.user
-        )
-        response = self.follower_client.get(
-            reverse('posts:follow_index'))
-        self.assertIn(self.post, response.context['page_obj'].object_list)
-        response = self.author_client.get(
-            reverse('posts:follow_index')
-        )
-        self.assertNotIn(self.post, response.context['page_obj'].object_list)

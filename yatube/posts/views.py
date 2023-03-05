@@ -9,7 +9,6 @@ from .utils import paginator
 def index(request):
     posts = Post.objects.all()
     page_obj = paginator(posts, request)
-
     context = {
         'page_obj': page_obj
     }
@@ -20,7 +19,6 @@ def group_posts(request, slug):
     group = get_object_or_404(Group, slug=slug)
     posts = group.posts.select_related()
     page_obj = paginator(posts, request)
-
     context = {
         'group': group,
         'page_obj': page_obj,
@@ -34,7 +32,6 @@ def profile(request, username):
     page_obj = paginator(author_posts, request)
     following = (request.user.is_authenticated
                  and author.following.filter(user=request.user).exists())
-
     context = {
         'author': author,
         'page_obj': page_obj,
@@ -108,12 +105,11 @@ def add_comment(request, post_id):
 
 @login_required
 def follow_index(request):
-    follower = Follow.objects.filter(user=request.user).values('author')
-    posts = Post.objects.filter(author__in=follower)
-    contex = {
+    posts = Post.objects.filter(author__following__user=request.user)
+    context = {
         'page_obj': paginator(posts, request),
     }
-    return render(request, 'posts/follow.html', contex)
+    return render(request, 'posts/follow.html', context)
 
 
 @login_required
@@ -127,6 +123,5 @@ def profile_follow(request, username):
 @login_required
 def profile_unfollow(request, username):
     author = get_object_or_404(User, username=username)
-    follow = Follow.objects.get(user=request.user, author=author)
-    follow.delete()
+    Follow.objects.filter(user=request.user, author=author).delete()
     return redirect('posts:profile', author)

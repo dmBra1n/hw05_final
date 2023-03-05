@@ -27,7 +27,7 @@
                     Всего постов автора: <span>{{ post.author.posts.count }}</span>
                 </li>
 
-                {% if user.id == post.author.id %}
+                {% if user == post.author %}
                     <li class="list-group-item">
                         <a href={% url "posts:post_edit" post.id %}>
                             Редактировать</a>

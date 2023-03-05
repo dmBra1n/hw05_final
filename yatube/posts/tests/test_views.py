@@ -7,7 +7,7 @@ from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from posts.models import Group, Post, User
+from posts.models import Group, Post, User, Follow
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
@@ -201,3 +201,52 @@ class PaginatorViewsTest(TestCase):
                 response = self.guest_client.get(reverse_name + '?page=2')
                 self.assertEqual(
                     len(response.context['page_obj']), self.SECOND_PAGE)
+
+
+class FollowViewTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create(username='Utest')
+        cls.follower = User.objects.create(username='Ufollower')
+        cls.post = Post.objects.create(
+            text='текст',
+            author=cls.user
+        )
+
+    def setUp(self):
+        self.author_client = Client()
+        self.author_client.force_login(self.user)
+        self.follower_client = Client()
+        self.follower_client.force_login(self.follower)
+
+    def test_follow(self):
+        """Проверка подписки на автора"""
+        self.follower_client.get(
+            reverse('posts:profile_follow', kwargs={'username': self.user})
+        )
+        self.assertEqual(Follow.objects.all().count(), 1)
+
+    def test_unfollow(self):
+        """Проверка отписки от автора"""
+        self.follower_client.get(
+            reverse('posts:profile_follow',
+                    kwargs={'username': self.user}))
+        self.follower_client.get(
+            reverse('posts:profile_unfollow', kwargs={'username': self.user})
+        )
+        self.assertEqual(Follow.objects.all().count(), 0)
+
+    def test_post_follow_unfollow(self):
+        """Проверка поста в подписках и без подписок"""
+        Follow.objects.create(
+            user=self.follower,
+            author=self.user
+        )
+        response = self.follower_client.get(
+            reverse('posts:follow_index'))
+        self.assertIn(self.post, response.context['page_obj'].object_list)
+        response = self.author_client.get(
+            reverse('posts:follow_index')
+        )
+        self.assertNotIn(self.post, response.context['page_obj'].object_list)
