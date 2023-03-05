@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+
 from posts.models import Comment, Group, Post, User
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
@@ -47,7 +48,7 @@ class PostFormTests(TestCase):
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def setUp(self):
-        self.user = User.objects.get(username='Utest')
+        self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
 
@@ -85,8 +86,8 @@ class PostFormTests(TestCase):
             ).exists()
         )
 
-    def test_comment_create(self):
-        """Проверка создания коментария авторизированным клиентом"""
+    def test_authorized_client_comment_create(self):
+        """Проверка создания комментария авторизированным клиентом"""
         comments_count = Comment.objects.count()
         form_data = {'text': 'Важный комментарий'}
         response = self.authorized_client.post(
@@ -99,3 +100,29 @@ class PostFormTests(TestCase):
             kwargs={'post_id': self.post.id}
         ))
         self.assertEqual(Comment.objects.count(), comments_count + 1)
+        self.assertTrue(
+            Comment.objects.filter(
+                text=form_data['text']
+            ).exists()
+        )
+
+    def test_guest_client_not_add_comment(self):
+        """Проверка не авторизированный пользователь
+            не может оставлять комментарии."""
+        comments_count = Comment.objects.count()
+        form_data = {'text': 'Важный комментарий'}
+
+        response = self.guest_client.post(
+            reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
+            data=form_data,
+            follow=True
+        )
+        self.assertRedirects(
+            response, f'/auth/login/?next=/posts/{self.post.id}/comment/'
+        )
+        self.assertEqual(Comment.objects.count(), comments_count)
+        self.assertFalse(
+            Comment.objects.filter(
+                text=form_data['text']
+            ).exists()
+        )

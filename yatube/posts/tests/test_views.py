@@ -7,7 +7,8 @@ from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from posts.models import Group, Post, User, Follow
+
+from posts.models import Follow, Group, Post, User
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
@@ -203,50 +204,53 @@ class PaginatorViewsTest(TestCase):
                     len(response.context['page_obj']), self.SECOND_PAGE)
 
 
-class FollowViewTest(TestCase):
+class FollowTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create(username='Utest')
-        cls.follower = User.objects.create(username='Ufollower')
+        cls.author = User.objects.create(username='Utest')
+        cls.user_following = User.objects.create(username='Yafollower')
         cls.post = Post.objects.create(
-            text='текст',
-            author=cls.user
+            author=cls.user_following,
+            text='Тестовый текст',
         )
 
     def setUp(self):
-        self.author_client = Client()
-        self.author_client.force_login(self.user)
-        self.follower_client = Client()
-        self.follower_client.force_login(self.follower)
+        self.guest_client = Client()
+        self.authorized_client_author = Client()
+        self.authorized_client_following = Client()
+        self.authorized_client_author.force_login(self.author)
+        self.authorized_client_following.force_login(self.user_following)
 
-    def test_follow(self):
-        """Проверка подписки на автора"""
-        self.follower_client.get(
-            reverse('posts:profile_follow', kwargs={'username': self.user})
+    def test_follow_unfollow(self):
+        """Проверка авторизованный пользователь
+        может подписываться и отписываться
+        от других пользователей"""
+        follow_count = Follow.objects.count()
+        self.authorized_client_author.get(
+            reverse(
+                'posts:profile_follow',
+                kwargs={'username': self.user_following.username}
+            )
         )
-        self.assertEqual(Follow.objects.all().count(), 1)
+        self.assertEqual(Follow.objects.count(), follow_count + 1)
+        self.authorized_client_author.get(
+            reverse(
+                'posts:profile_unfollow',
+                kwargs={'username': self.user_following.username}
+            )
+        )
+        self.assertEqual(Follow.objects.count(), follow_count)
 
-    def test_unfollow(self):
-        """Проверка отписки от автора"""
-        self.follower_client.get(
-            reverse('posts:profile_follow',
-                    kwargs={'username': self.user}))
-        self.follower_client.get(
-            reverse('posts:profile_unfollow', kwargs={'username': self.user})
+    def test_follower_authorized_client(self):
+        """Проверка новая запись появляется в ленте подписчиков"""
+        follow_count = Follow.objects.count()
+        post_follow = Follow.objects.create(
+            user=self.author,
+            author=self.user_following
         )
-        self.assertEqual(Follow.objects.all().count(), 0)
-
-    def test_post_follow_unfollow(self):
-        """Проверка поста в подписках и без подписок"""
-        Follow.objects.create(
-            user=self.follower,
-            author=self.user
-        )
-        response = self.follower_client.get(
+        self.authorized_client_author.get(reverse('posts:follow_index'))
+        self.assertEqual(Follow.objects.count(), follow_count + 1)
+        response = self.authorized_client_following.get(
             reverse('posts:follow_index'))
-        self.assertIn(self.post, response.context['page_obj'].object_list)
-        response = self.author_client.get(
-            reverse('posts:follow_index')
-        )
-        self.assertNotIn(self.post, response.context['page_obj'].object_list)
+        self.assertNotContains(response, post_follow)
