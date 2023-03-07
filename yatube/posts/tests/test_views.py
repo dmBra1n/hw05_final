@@ -222,10 +222,9 @@ class FollowTest(TestCase):
         self.authorized_client_author.force_login(self.author)
         self.authorized_client_following.force_login(self.user_following)
 
-    def test_follow_unfollow(self):
+    def test_follow(self):
         """Проверка авторизованный пользователь
-        может подписываться и отписываться
-        от других пользователей"""
+        может подписываться на других пользователей"""
         follow_count = Follow.objects.count()
         self.authorized_client_author.get(
             reverse(
@@ -234,13 +233,24 @@ class FollowTest(TestCase):
             )
         )
         self.assertEqual(Follow.objects.count(), follow_count + 1)
+
+    def test_unfollow(self):
+        """Проверка авторизованный пользователь
+        может отписываться от других пользователей"""
+        self.authorized_client_author.get(
+            reverse(
+                'posts:profile_follow',
+                kwargs={'username': self.user_following.username}
+            )
+        )
+        follow_count = Follow.objects.count()
         self.authorized_client_author.get(
             reverse(
                 'posts:profile_unfollow',
                 kwargs={'username': self.user_following.username}
             )
         )
-        self.assertEqual(Follow.objects.count(), follow_count)
+        self.assertEqual(Follow.objects.count(), follow_count - 1)
 
     def test_follower_authorized_client(self):
         """Проверка новая запись появляется в ленте подписчиков"""
