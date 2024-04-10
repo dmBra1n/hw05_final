@@ -1,8 +1,13 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-SECRET_KEY = 'ptc6-zc2%by1q56_4u*d+=m&f0edpdi&y%q@hkm72x9f*+4tf+'
+SECRET_KEY = os.getenv(
+    "SECRET_KEY", default='ptc6-zc2%by1q56_4u*d+=m&f0edpdi&y%q@hkm72x9f*+4tf+'
+)
 
 DEBUG = True
 
